@@ -1,6 +1,8 @@
 #include "Leadwerks.h"
 using namespace Leadwerks;
 
+// https://learn.microsoft.com/en-us/windows/win32/dxtecharts/taking-advantage-of-high-dpi-mouse-movement
+
 #ifndef HID_USAGE_PAGE_GENERIC
 #define HID_USAGE_PAGE_GENERIC         ((USHORT) 0x01)
 #endif
@@ -76,8 +78,27 @@ public:
 
 	bool rawmouse = false;
 
+	void Reset()
+	{
+		freelookstarted = false;
+		freelookrotation = entity->GetRotation(true);
+		auto window = Window::GetCurrent();
+		freelookmousepos = window->GetMousePosition().xy();
+	}
+
+	void SwapMode()
+	{
+		rawmouse = !rawmouse;
+		Reset();
+	}
+
 	void RawMouseLook()
 	{
+		auto window = Window::GetCurrent();
+		auto cx = Math::Round(window->context->GetWidth() / 2);
+		auto cy = Math::Round(window->context->GetHeight() / 2);
+		window->SetMousePosition(cx, cy);
+
 		if (!freelookstarted)
 		{
 			freelookstarted = true;
@@ -102,20 +123,22 @@ public:
 	void RelativeMouseLook()
 	{
 		auto window = Window::GetCurrent();
-		auto context = Context::GetCurrent();
-		auto cx = Math::Round(context->GetWidth() / 2);
-		auto cy = Math::Round(context->GetHeight() / 2);
+		auto cx = Math::Round(window->context->GetWidth() / 2);
+		auto cy = Math::Round(window->context->GetHeight() / 2);
 		auto mpos = window->GetMousePosition();
 		window->SetMousePosition(cx, cy);
 		auto centerpos = window->GetMousePosition();
 
 		if (freelookstarted)
 		{
-			float looksmoothing = Math::Clamp(mousesmoothing, 0.5f, 1.0f); //mousesmoothing; //0.5f;
+			float looksmoothing = mousesmoothing; //0.5f;
 			float lookspeed = mouselookspeed / 10.0f;
 
-			mpos.x = mpos.x * looksmoothing + freelookmousepos.x * (1 - looksmoothing);
-			mpos.y = mpos.y * looksmoothing + freelookmousepos.y * (1 - looksmoothing);
+			if (looksmoothing > 0.00f)
+			{
+				mpos.x = mpos.x * looksmoothing + freelookmousepos.x * (1 - looksmoothing);
+				mpos.y = mpos.y * looksmoothing + freelookmousepos.y * (1 - looksmoothing);
+			}
 
 			auto dx = (mpos.x - centerpos.x) * lookspeed;
 			auto dy = (mpos.y - centerpos.y) * lookspeed;
@@ -131,35 +154,6 @@ public:
 			freelookrotation = entity->GetRotation(true);
 			freelookmousepos = window->GetMousePosition().xy();
 		}
-
-#if 0
-		auto window = Window::GetCurrent();
-		auto context = Context::GetCurrent();
-		auto cx = Math::Round(context->GetWidth() / 2);
-		auto cy = Math::Round(context->GetHeight() / 2);
-
-		if (!freelookstarted)
-		{
-			freelookstarted = true;
-			freelookrotation = entity->GetRotation(true);
-			freelookmousepos = Vec2(cx, cy);
-		}
-
-		auto newmousepos = Vec2((window->GetMousePosition().x - cx) / 1000, (window->GetMousePosition().y - cy) / 1000);
-		lookchange.x = lookchange.x * mousesmoothing + (newmousepos.y - freelookmousepos.y) * 100.0f * mouselookspeed * (1.0f - mousesmoothing);
-		lookchange.y = lookchange.y * mousesmoothing + (newmousepos.x - freelookmousepos.x) * 100.0f * mouselookspeed * (1.0f - mousesmoothing);
-
-		if (Math::Abs(lookchange.x) < 0.001f) lookchange.x = 0.0f;
-		if (Math::Abs(lookchange.y) < 0.001f) lookchange.y = 0.0f;
-		if (lookchange.x != 0.0f or lookchange.y != 0.0f)
-		{
-			freelookrotation.x += lookchange.x;
-			freelookrotation.y += lookchange.y;
-			Print(freelookrotation.ToString());
-			entity->SetRotation(freelookrotation, true);
-		}
-		freelookmousepos = newmousepos;
-#endif
 	}
 
 	virtual void UpdateWorld()
@@ -187,6 +181,18 @@ public:
 		if (window->KeyDown(Key::A)) entity->Move(-speed, 0, 0);
 		if (window->KeyDown(Key::W)) entity->Move(0, 0, speed);
 		if (window->KeyDown(Key::S)) entity->Move(0, 0, -speed);
+	}
+
+	virtual void PostRender(Context* context)
+	{
+		context->SetBlendMode(Blend::Alpha);
+
+		if (rawmouse)
+			context->DrawText("Mouse Mode: Raw", 2, 2);
+		else
+			context->DrawText("Mouse Mode: Relative", 2, 2);
+
+		context->SetBlendMode(Blend::Solid);
 	}
 };
 
@@ -238,21 +244,10 @@ int main(int argc,const char *argv[])
 
 	auto camera_actor = new CameraControls();
 	camera->SetActor(camera_actor);
-	if (camera_actor->rawmouse == true)
-		Print("Raw Mouse");
-	else
-		Print("Relative Mouse");
 
 	while (window->Closed() == false and window->KeyDown(Key::Escape) == false)
 	{
-		if (window->KeyHit(Key::F1))
-		{
-			camera_actor->rawmouse = !camera_actor->rawmouse;
-			if (camera_actor->rawmouse == true) 
-				Print("Raw Mouse");
-			else
-				Print("Relative Mouse");
-		}
+		if (window->KeyHit(Key::F1)) camera_actor->SwapMode();
 
 		Time::Update();
 		world->Update();
