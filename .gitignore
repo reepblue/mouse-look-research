@@ -27,10 +27,13 @@
 *.lib
 
 # Executables
-*.exe
+#*.exe
 *.out
 *.app
 
 *.meta
 *.pdb
-**/.vs/**
+.vs/**
+Projects/Windows/.vs/**
+Projects/Windows/Debug/**
+Projects/Windows/Release/**
