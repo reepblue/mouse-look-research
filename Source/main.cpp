@@ -206,7 +206,7 @@ public:
 };
 
 // Main App 
-int main(int argc,const char *argv[])
+int main(int argc, const char* argv[])
 {
 	// Create a window
 	auto window = Window::Create("Leadwerks", 0, 0, 1280, 720, Window::Titlebar | Window::Center);
