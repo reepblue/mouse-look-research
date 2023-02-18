@@ -1,0 +1,13 @@
+Author=Steven Ferriolo"
+MainSourceFile=""
+MultiLineCommentOpenToken="//"
+SingleLineCommentToken="//"
+CommandLine=""
+Copyright="Reep Softworks 2021"
+WindowsPublishPath=""
+AndroidPublishPath=""
+iOSPublishPath=""
+MacOSPublishPath=""
+Template="Blank Project"
+AppID=0
+DepotID=0
