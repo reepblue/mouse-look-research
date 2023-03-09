@@ -1,8 +1,7 @@
 #include "Leadwerks.h"
 using namespace Leadwerks;
 
-// https://learn.microsoft.com/en-us/windows/win32/dxtecharts/taking-advantage-of-high-dpi-mouse-movement
-
+// WinAPI Code
 #ifndef HID_USAGE_PAGE_GENERIC
 #define HID_USAGE_PAGE_GENERIC         ((USHORT) 0x01)
 #endif
@@ -10,7 +9,6 @@ using namespace Leadwerks;
 #define HID_USAGE_GENERIC_MOUSE        ((USHORT) 0x02)
 #endif
 
-// WinAPI Code
 void InitWinAPI()
 {
 	auto window = Window::GetCurrent();
@@ -28,6 +26,8 @@ void InitWinAPI()
 	}
 }
 
+// Getting raw mouse input from WinAPI.
+// https://learn.microsoft.com/en-us/windows/win32/dxtecharts/taking-advantage-of-high-dpi-mouse-movement
 static Vec2 rawmouseaxis = Vec2(0);
 LRESULT CALLBACK ProcInputWin32(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -56,6 +56,7 @@ LRESULT CALLBACK ProcInputWin32(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 	return Leadwerks::WndProc(hWnd, message, wParam, lParam);
 }
 
+// Return the mouse axis divided by the dpi.
 Vec2 GetMouseAxis(const float dpi = 1000)
 {
 	Vec2 t = Vec2(0);
@@ -83,6 +84,12 @@ public:
 		freelookstarted = false;
 		freelookrotation = entity->GetRotation(true);
 		auto window = Window::GetCurrent();
+
+		window->FlushKeys();
+		window->FlushMouse();
+		window->SetMousePosition(window->GetWidth() / 2, window->GetHeight() / 2);
+		rawmouseaxis = Vec2(0, 0);
+
 		freelookmousepos = window->GetMousePosition().xy();
 	}
 
@@ -217,42 +224,66 @@ int main(int argc, const char* argv[])
 	// Replace the engine's proc with ours.
 	WNDPROC OldProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(window->GetHandle(), GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(ProcInputWin32)));
 
-	// Create a frame buffer
-	auto framebuffer = Context::Create(window);
+	// Create a context
+	auto context = Context::Create(window);
 
 	// Create world
 	auto world = World::Create();
 
-	//Create a camera
+	// Create a camera
 	auto camera = Camera::Create();
 	camera->SetClearColor(0.125);
 	camera->SetFOV(70);
 	camera->SetPosition(0, 0, -3);
 
-	//Create a light
+	// Attach Camera Controls actor to camera
+	auto camera_actor = new CameraControls();
+	camera->SetActor(camera_actor);
+
+	// Create a light
 	auto light = DirectionalLight::Create();
 	light->SetRotation(35, 45, 0);
 	light->SetRange(-10, 10);
 
-	//Create a box
+	// Create a box
 	auto box = Model::Box();
 	box->SetColor(0, 0, 1, 1);
 
-	//Attach actors;
+	// Attach Spinner actor to box
 	auto box_actor = new Spinner();
 	box->SetActor(box_actor);
 
-	auto camera_actor = new CameraControls();
-	camera->SetActor(camera_actor);
+	// Hide the mouse on start
+	window->HideMouse();
 
-	while (window->Closed() == false and window->KeyDown(Key::Escape) == false)
+	while (window->Closed() == false and window->KeyDown(Key::End) == false)
 	{
 		if (window->KeyHit(Key::F1)) camera_actor->SwapMode();
 
+		// Update world with pause support.
+		if (window->KeyHit(Key::Escape))
+		{
+			camera_actor->Reset();
+
+			if (!timepausestate)
+			{
+				window->ShowMouse();
+				Time::Pause();
+			}
+			else
+			{			
+				window->HideMouse();
+				Time::Resume();
+			}
+		}
+
 		Time::Update();
-		world->Update();
+		if (!timepausestate)
+		{
+			world->Update();
+		}
 		world->Render();
 
-		framebuffer->Sync();
+		context->Sync();
 	}
 }
